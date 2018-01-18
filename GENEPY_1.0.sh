@@ -1,28 +1,24 @@
 #!/bin/bash
 
-#ssh -N -D localhost:6789 -N cyan03 &
 
-#COUNT=$1
-#GENE=$(sed ''$COUNT'q;d' tutti_geni)
+
+######## WELCOME TO GenePy, Gene Patogenicity model ########
+#	Provide a gene name as STDIN e.g. $> sh GenePy_1.0.sh NOD2
+# In the same folder of GenePy the following files must be present:
+#   @ ALL_GENES_FINAL.bed : an annotated .bed file containing all the target regions to be analyzed
+#   @ FINAL_GTYPED_BIALLELIC.vcf.gz : a .vcf.gz (and its index) file with all the samples to be analyzed
+#############################################################
+
 GENE=$1
 
-
-## WELCOME TO VADER, VAriant DEleteriousness and Rarity model
-##	the following python script selects individuals suitable for the analysis of a given gene.
-#	Provide a gene name in STIN
-#	mean_matrix.npy, 30x_matrix.npy and ALL_GENES_FINAL.bed must be in the same folder.
-#	the script generates four executable that select gene locations and sample from the main FULL_GTYPED.vcf.gz
-
-#module load numpy
-#module load python
-#export PYTHONPATH=/home/em1c14/.local/lib/python2.7/site-packages:$PYTHONPATH
-
 echo "... EXTRACTING GENE VARIANTS ..."
+# generate scripts for extracting specific gene variants from all samples
 python variant_extractor_3.0.py $GENE
 
-#include here the grep awk to create the interval file
+# create the interval file
 awk -v pat=^"$GENE"$ '$4 ~ pat{print $1":"$2"-"$3}' ALL_GENES_FINAL.bed > "$GENE".intervals
 
+#extract variants using GATK from FINAL_GTYPED_BIALLELIC.vcf.gz
 sh "$GENE"_IBD.sh
 sh "$GENE"_Lev.sh
 sh "$GENE"_FULL.sh
@@ -33,8 +29,6 @@ module load samtools/1.2.1
 vcfutils.pl varFilter -d 4 -1 0 -2 0 -3 0 -4 0 "$GENE"_IBD.vcf > "$GENE"_IBD_filt.vcf
 vcfutils.pl varFilter -d 4 -1 0 -2 0 -3 0 -4 0 "$GENE"_Lev.vcf > "$GENE"_Lev_filt.vcf
 vcfutils.pl varFilter -d 4 -1 0 -2 0 -3 0 -4 0 "$GENE"_FULL.vcf > "$GENE"_FULL_filt.vcf
-
-
 
 
 echo "CONVERTING AND ANNOTATING WITH ANNOVAR..."
@@ -90,14 +84,8 @@ python merge_vcf_pseudo_3.0.py "$GENE"_Lev_pseudo.vcf "$GENE".hg38_multianno.txt
 ## Run model and test
 #	script takes: IBD, Levin, GENE inputs
 echo "FINAL STEP, MAKE MATRICES..."
-#python pupu.py "$GENE"_IBD.meta "$GENE"_Lev.meta "$GENE" > "$GENE".pval
 python make_scores_mat_3.0.py "$GENE"_IBD.meta "$GENE"_Lev.meta "$GENE" > "$GENE".pval
 
 mv "$GENE".pval PVALUES/.
 
 rm "$GENE"_* "$GENE".hg38_multianno.txt "$GENE".intervals
-
-
-
-
-
