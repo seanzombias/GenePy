@@ -2,7 +2,7 @@
 """
 Created on Wed Sept 27 12:02:04 2017
 
-@author: Enrico
+@author: Enrico Mossotto
 """
 import sys, requests
 import numpy as np
@@ -11,7 +11,7 @@ from scipy.stats import mannwhitneyu as rks
 
 
 
-server = "http://rest.ensembl.org/variation/human/"
+server = "http://rest.ensembl.org/variation/human/" #Ensembl API server
 
 #%% INPUT files
 
@@ -23,12 +23,7 @@ def import_data():
 cases, levin = import_data()
 gene=sys.argv[3]
 
-#def bubu():
-#    cases=([line.rstrip().split('\t') for line in open('test_IBD_combined.txt','r')])
-#    levin=([line.rstrip().split('\t') for line in open('test_lev_combined.txt','r')])
-#    gene='NOD2'
-#    return cases, levin, gene
-#cases, levin, gene = bubu()
+
 cases_header=np.array(cases.pop(0))
 levin_header=np.array(levin.pop(0))
 
@@ -50,9 +45,10 @@ for i,_x in enumerate(known_fa):
         else:
             known_fa[i]=cases[i,23].astype(float)
 #%%
-proxies = {'http' : "socks5://localhost:6789"} #on if on iridis
+proxies = {'http' : "socks5://localhost:6789"} #on if behind a firewall
 #proxies = {}
 
+# Obtain frequencies not collected by Annovar using the Ensembl API
 freqs = np.zeros((rsids.shape[0], 2))
 freqs[:] = np.nan
 freqs[:,1]= known_fa
@@ -63,7 +59,7 @@ def get_alts_freq(r, a, rs):
         alt = np.nan
         ext = rs+"?pops=1"
 #        v = requests.get(server+ext, headers={ "Content-Type" : "application/json"})
-        v = requests.get(server+ext, headers={ "Content-Type" : "application/json"}, proxies=proxies) #if on iridis
+        v = requests.get(server+ext, headers={ "Content-Type" : "application/json"}, proxies=proxies) #if behind a firewall
         v = v.json()
         fr = 0
         fa = 0
@@ -103,7 +99,7 @@ def get_alts_freq(r, a, rs):
                     alt = x['frequency']
                     fa = 1
     
-        if fa == 0 and fr == 0:
+        if fa == 0 and fr == 0: # add novel freq if no annotation
             ref = 0.99999
             alt = 0.00001
             
@@ -118,6 +114,7 @@ def get_alts_freq(r, a, rs):
 
     return ref, alt
 
+# run the frequency function for each rsid
 for i, n in enumerate(rsids):
     _ref, _alt = get_alts_freq(cases[i,2], cases[i,3], n)
     if np.isnan(freqs[i,0]):
@@ -125,10 +122,10 @@ for i, n in enumerate(rsids):
     if np.isnan(freqs[i,1]):
         freqs[i,1] = _alt
     
-freqs[freqs==0]=0.00001 # set 0 as minimum otherwise log fails
+freqs[freqs==0]=0.00001 # set 0 MAFs as minimum otherwise log fails
 
 
-cases=cases[:,25:].astype(float)/2.00
+cases=cases[:,25:].astype(float)/2.00 #recode genotypes as 0,0.5,1
 cases_header=cases_header[25:]        
 #
 #
@@ -139,7 +136,7 @@ levin_header=levin_header[25:]
 
 final_sample_list=np.hstack((cases_header,levin_header))
 
-#%% Clalculate the distributions and test
+#%% Clalculate the GenePy scores and test
 
 def score_db(ibd,lev,score,freq,sname):
     S=np.copy(score)
