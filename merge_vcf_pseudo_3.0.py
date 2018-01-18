@@ -2,13 +2,13 @@
 """
 Created on Thu Feb 09 15:18:45 2017
 
-@author: Enrico
+@author: Enrico Mossotto
 """
-## FIRST FILE IS VCF, SECOND IS ANNOVAR, THIRD OUTPUT
+## FIRST INPUT IS VCF, SECOND IS ANNOVAR, THIRD OUTPUT
 import numpy as np
 import re
 import sys
-#print sys.argv
+
 #%% import and format VCF file
 vcf=[]
 c=0
@@ -37,7 +37,7 @@ for line in open(sys.argv[2],'r'):
     else:
         anno.append(line.rstrip().split('\t'))
 anno=np.array(anno)
-keep = [0,1,3,4,6,8,10,12,14,18,19,22,24,26,27,29,31,33,35,36,44,46,48,56,59,60]
+keep = [0,1,3,4,6,8,10,12,14,18,19,22,24,26,27,29,31,33,35,36,44,46,48,56,59,60] #retain only selected deleteriousness metrics
 anno = anno[:,keep]
 a_header = a_header[keep]
 anno[anno == '.'] = np.nan
@@ -55,26 +55,30 @@ fix_scores()
 anno = np.delete(anno,10,1)#remove MutationTaster prediction
 a_header = np.delete(a_header,10,0)
 
- 
+ # Recode frameshifts to maximum damage
 _fsi_loc = np.where(anno[:,5]=='frameshift insertion')[0]
 _fsd_loc = np.where(anno[:,5]=='frameshift deletion')[0]
 anno[_fsi_loc, 6:22] = 1.0 # set 1 for FSI
 anno[_fsd_loc, 6:22] = 1.0 # set 1 for FSD
 
-_stg_loc = np.where(anno[:,5]=='stopgain')[0] #search and modify stopgain
+ # Recode stopgains to maximum
+_stg_loc = np.where(anno[:,5]=='stopgain')[0] 
 for _x in _stg_loc:
     _k  = anno[_x, 6:22].astype(float)
     _mask = np.isnan(_k)
     _k[_mask] = 1.0
     anno[_x,6:22]= _k
-    
-_stl_loc = np.where(anno[:,5]=='stoploss')[0]  #search and modify stoploss
+ 
+# Recode stoploss to maximum   
+_stl_loc = np.where(anno[:,5]=='stoploss')[0] 
 for _x in _stl_loc:
     _k  = anno[_x, 6:22].astype(float)
     _mask = np.isnan(_k)
     _k[_mask] = 1.0
     anno[_x,6:22]= _k
-#
+
+###
+
 _ukn_var = np.where(anno[:,5]=='nan')[0] #remove uknown variants
 anno = np.delete(anno, _ukn_var,0)
 vcf = np.delete(vcf, _ukn_var,0)
@@ -86,6 +90,6 @@ k_header = np.hstack((a_header,v_header))
 #
 combi=np.vstack((k_header,K)).astype('string')
 #
-##np.savetxt('test_lev_combined.txt', combi, delimiter='\t', fmt='%s')
+
 np.savetxt(sys.argv[3], combi, delimiter='\t', fmt='%s')
 print 'DONE!'
